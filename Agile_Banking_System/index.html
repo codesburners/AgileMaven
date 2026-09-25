@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Agile banking system. Register customers, verify KYC, and manage compliance.">
+  <title>Meridian Bank — Customer Management</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/public.css">
+  <style>
+    /* ══════════════════════════════════════════════════════════
+       Bridge Variables — alias --color-* to --clr-*
+       So JS templates referencing var(--color-*) work seamlessly
+       ══════════════════════════════════════════════════════════ */
+    :root {
+      --color-primary:       var(--clr-primary);
+      --color-primary-hover: var(--clr-primary-hover);
+      --color-primary-alpha: var(--clr-primary-muted);
+      --color-accent:        var(--clr-accent);
+      --color-success:       var(--clr-success);
+      --color-warning:       var(--clr-warning);
+      --color-danger:        var(--clr-danger);
+      --color-info:          var(--clr-accent);
+      --color-text:          var(--clr-text);
+      --color-text-secondary:var(--clr-text-secondary);
+      --color-text-muted:    var(--clr-text-muted);
+      --color-border:        var(--clr-border);
+      --color-surface-hover: var(--clr-bg-card-hover);
+      --gradient-primary:    linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      --radius-md:           var(--radius-md);
+    }
+
+    /* ── Additional layout helpers used by JS templates ── */
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .sidebar-header .sidebar-toggle {
+      position: static;
+      margin-right: 0.75rem;
+    }
+
+    .sidebar-brand-text {
+      font-family: var(--ff-heading);
+      font-size: var(--fs-lg);
+      font-weight: var(--fw-bold);
+      color: var(--clr-text);
+    }
+
+    .sidebar.collapsed .sidebar-brand-text,
+    .sidebar.collapsed .nav-link-text {
+      display: none;
+    }
+
+    .sidebar-role {
+      padding: var(--sp-4) var(--sp-5);
+      text-align: center;
+    }
+
+    .sidebar-footer {
+      padding: var(--sp-4) var(--sp-3);
+      border-top: 1px solid var(--clr-border);
+      margin-top: auto;
+    }
+
+    /* ── Dashboard grid ── */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .stat-card-sm {
+      padding: 1rem 1.25rem;
+    }
+
+    .stat-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-card-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-card-value {
+      font-family: var(--ff-heading);
+      font-size: 1.75rem;
+      font-weight: var(--fw-bold);
+      color: var(--clr-text);
+      line-height: 1.2;
+    }
+
+    .stat-card-label {
+      font-size: 0.8rem;
+      color: var(--clr-text-muted);
+      margin-top: 0.1rem;
+    }
+
+    /* ── Profile layout ── */
+    .profile-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .profile-layout > .card:first-child {
+      grid-column: span 2;
+    }
+
+    /* ── Info rows ── */
+    .info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--clr-border);
+    }
+
+    .info-label {
+      color: var(--clr-text-muted);
+      font-size: 0.85rem;
+    }
+
+    .info-value {
+      color: var(--clr-text);
+      font-weight: 500;
+      text-align: right;
+    }
+
+    /* ── Review fields (Step 4 registration) ── */
+    .review-field {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--clr-border);
+      font-size: 0.9rem;
+    }
+    .review-field span { color: var(--clr-text-muted); }
+    .review-field strong { color: var(--clr-text); }
+
+    /* ── Progress bar ── */
+    .progress-bar-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--clr-primary), var(--clr-accent));
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    /* ── Activity feed ── */
+    .activity-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+    }
+
+    .activity-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 0.4rem;
+      flex-shrink: 0;
+    }
+
+    .activity-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1rem;
+      font-size: 0.85rem;
+    }
+
+    .activity-content strong {
+      color: var(--clr-text);
+    }
+
+    .activity-content span {
+      color: var(--clr-text-secondary);
+    }
+
+    .activity-content small {
+      color: var(--clr-text-muted);
+      font-size: 0.75rem;
+    }
+
+    /* ── Bar chart (pure CSS) ── */
+    .bar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .bar-chart-item {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .bar-chart-label {
+      width: 80px;
+      font-size: 0.85rem;
+      color: var(--clr-text-secondary);
+    }
+
+    .bar-chart-track {
+      flex: 1;
+      height: 24px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .bar-chart-fill {
+      height: 100%;
+      border-radius: 6px;
+      transition: width 0.8s ease;
+      min-width: 4px;
+    }
+
+    .bar-chart-value {
+      width: 30px;
+      text-align: right;
+      font-weight: 600;
+      color: var(--clr-text);
+      font-size: 0.9rem;
+    }
+
+    /* ── Button spinner ── */
+    .btn-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-bar .search-bar {
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .search-bar {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-bar svg {
+      position: absolute;
+      left: 12px;
+      color: var(--clr-text-muted);
+      pointer-events: none;
+    }
+
+    .search-bar .form-input {
+      padding-left: 38px;
+    }
+
+    /* ── Table responsive wrapper ── */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    /* ── Role selector ── */
+    .role-selector {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--clr-bg);
+      padding: 2rem;
+    }
+
+    .role-selector-inner {
+      text-align: center;
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .role-brand {
+      margin-bottom: 3rem;
+    }
+
+    .role-brand-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      background: rgba(99,102,241,0.1);
+      margin-bottom: 1.5rem;
+    }
+
+    .role-brand-icon svg {
+      display: inline;
+    }
+
+    .role-brand h1 {
+      font-size: 2.25rem;
+      background: linear-gradient(135deg, var(--clr-primary), var(--clr-accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+
+    .role-brand p {
+      color: var(--clr-text-muted);
+      font-size: 1rem;
+    }
+
+    .role-title {
+      font-size: 1.25rem;
+      color: var(--clr-text-secondary);
+      margin-bottom: 2rem;
+      font-weight: 500;
+    }
+
+    .role-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .role-card {
+      background: var(--clr-bg-card);
+      border: 1px solid var(--clr-border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .role-card:hover {
+      transform: translateY(-6px);
+      border-color: var(--clr-primary);
+      box-shadow: 0 12px 40px rgba(99,102,241,0.2);
+      background: rgba(99,102,241,0.08);
+    }
+
+    .role-card-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      background: rgba(99,102,241,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.25rem;
+    }
+
+    .role-card-icon svg {
+      display: inline;
+    }
+
+    .role-card h3 {
+      color: var(--clr-text);
+      font-size: 1.35rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .role-card p {
+      color: var(--clr-text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+
+    .role-card-cta {
+      color: var(--clr-primary);
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: color 0.2s;
+    }
+
+    .role-card:hover .role-card-cta {
+      color: var(--clr-accent);
+    }
+
+    .role-footer {
+      color: var(--clr-text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* ── Bulk actions bar ── */
+    .bulk-actions-bar {
+      border-left: 3px solid var(--clr-primary);
+    }
+
+    /* ── Checklist items (KYC review) ── */
+    .checklist-item:hover {
+      background: rgba(255,255,255,0.05) !important;
+    }
+
+    .checklist-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--clr-primary);
+    }
+
+    /* ── Page header ── */
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .page-header h1 {
+      font-size: 1.75rem;
+    }
+
+    .page-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    /* ── Animations ── */
+    .animate-fade-in {
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    .animate-slide-up {
+      animation: slideUp 0.4s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .dashboard-grid,
+      .profile-layout,
+      .role-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-grid .card[style*="grid-column: span 2"],
+      .profile-layout > .card:first-child {
+        grid-column: span 1;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+
+      .sidebar:not(.collapsed) {
+        transform: translateX(0);
+      }
+
+      .sidebar.collapsed {
+        transform: translateX(-100%);
+        width: var(--sidebar-width);
+      }
+
+      .main-content {
+        margin-left: 0 !important;
+      }
+
+      .sidebar-header .sidebar-toggle {
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 999;
+        background: var(--clr-bg-card);
+        border: 1px solid var(--clr-border);
+        border-radius: 8px;
+        width: 40px;
+        height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- 3D Animation Libraries (Three.js & Vanta.js) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.net.min.js"></script>
+
+  <!-- Application Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/public.js"></script>
+  <script src="js/customer.js"></script>
+  <script src="js/officer.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

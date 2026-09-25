@@ -1,0 +1,8 @@
+node_modules
+BANK--AGILE/node_modules
+BANK--AGILE/dist
+.git
+.gitignore
+.env
+Dockerfile
+.dockerignore
