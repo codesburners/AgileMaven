@@ -1,65 +1,83 @@
+
 pipeline {
-    agent any // Runs on any available Jenkins agent
+    agent any
+
+    environment {
+        DOCKER_USERNAME = 'YOUR_DOCKERHUB_USERNAME'
+        IMAGE_NAME = 'agilebanking'
+    }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checks out the source code from the configured Git repository
                 checkout scm
             }
         }
 
-        stage('Build') {
+        stage('Build and Test') {
             steps {
-                echo 'Building the Spring Boot application...'
-                script {
-                    // Uses the Maven wrapper to ensure the correct Maven version is used
-                    if (isUnix()) {
-                        sh 'chmod +x mvnw'
-                        sh './mvnw clean compile'
-                    } else {
-                        bat 'mvnw.cmd clean compile'
-                    }
-                }
-            }
-        }
-
-        stage('Test') {
-            steps {
-                echo 'Running Unit & Integration Tests...'
-                script {
-                    if (isUnix()) {
-                        sh './mvnw test'
-                    } else {
-                        bat 'mvnw.cmd test'
-                    }
-                }
+                echo 'Building and testing Spring Boot application...'
+                bat 'mvn clean package'
             }
             post {
                 always {
-                    // Publishes the test results to the Jenkins UI
-                    junit 'target/surefire-reports/*.xml'
+                    junit testResults: 'target/surefire-reports/*.xml',
+                          allowEmptyResults: true
+                }
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar',
+                                     fingerprint: true
                 }
             }
         }
 
-        stage('Package') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Packaging the application into a JAR file...'
-                script {
-                    if (isUnix()) {
-                        sh './mvnw package -DskipTests'
-                    } else {
-                        bat 'mvnw.cmd package -DskipTests'
-                    }
+                bat 'docker build -t %DOCKER_USERNAME%/%IMAGE_NAME%:%BUILD_NUMBER% -t %DOCKER_USERNAME%/%IMAGE_NAME%:latest .'
+            }
+        }
+
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-cred',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    bat '''
+                    @echo off
+                    echo %DOCKER_PASS%| docker login -u %DOCKER_USER% --password-stdin
+                    '''
                 }
             }
-            post {
-                success {
-                    // Archives the generated JAR file so you can download it from Jenkins
-                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
-                }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                bat 'docker push %DOCKER_USERNAME%/%IMAGE_NAME%:%BUILD_NUMBER%'
+                bat 'docker push %DOCKER_USERNAME%/%IMAGE_NAME%:latest'
             }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                bat 'kubectl apply -f deployment.yaml'
+                bat 'kubectl set image deployment/agilebanking agilebanking=%DOCKER_USERNAME%/%IMAGE_NAME%:%BUILD_NUMBER%'
+                bat 'kubectl rollout status deployment/agilebanking --timeout=180s'
+                bat 'kubectl get pods'
+                bat 'kubectl get services'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'CI/CD pipeline completed successfully.'
+        }
+        failure {
+            echo 'Pipeline failed. Inspect Console Output for the failing stage.'
         }
     }
 }
