@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: agilebanking
-          image: YOUR_DOCKERHUB_USERNAME/agilebanking:latest
+          image: amigohere/agilebanking:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
